@@ -1,14 +1,21 @@
 # 一週餐單AI（第一層試行版）
 
-單一檔案網頁（`index.html`），無需安裝或後端。菜式資料已內嵌自 `食譜.xlsx`；偏好設定只存喺瀏覽器 localStorage。電腦版顯示 7×3 表格（星期一至日 × 早午晚），手機版顯示逐日卡片。
+單一檔案網頁 `index.html`＋資料檔 `食譜.xlsx`。電腦版顯示 7×3 表格，手機版顯示逐日卡片；右上角可切換中／英／印／菲。
 
-## 上載到 GitHub 並用 GitHub Pages 開啟
-1. 喺 GitHub 新增 repository（例如 `meal-planner`）。
-2. 按 **Add file → Upload files**，上載 `index.html`（同 `README.md`），按 **Commit changes**。
-3. 去 **Settings → Pages**，Source 揀 **Deploy from a branch**，Branch 揀 `main` / `(root)`，按 Save。
-4. 網址會係 `https://<你的用戶名>.github.io/meal-planner/`。
+## 上載到 GitHub（GitHub Pages）
+1. 新增 repository（例如 `meal-planner`）。
+2. **Add file → Upload files**，同時上載 `index.html`、`食譜.xlsx`、`README.md`，按 **Commit changes**。
+3. **Settings → Pages**：Source 揀 Deploy from a branch，Branch 揀 `main` / `(root)`，Save。
 
-## 規則說明（只供開發者；網頁上喺網址尾加 `#rules` 先會顯示）
+## 自己更新菜式資料（唔使經 Claude）
+1. 喺 Excel 改好並儲存（翻譯欄用「貼上為值」，唔好留公式）。
+2. 檔名改成 **食譜.xlsx**，欄位名稱同次序唔好改。
+3. GitHub repository → **Add file → Upload files** → 拖入 `食譜.xlsx` → **Commit changes**（同名會覆蓋）。
+4. 等一至兩分鐘，重新整理網頁。讀唔到 Excel 時，頁面會用內嵌嘅舊資料。
+
+Excel 可選欄位：菜式清單加 `Dish_EN`、`Dish_ID`、`Dish_FIL`（菜名翻譯）；做法加 `Step_EN`、`Step_ID`、`Step_FIL`（步驟翻譯）；菜式清單第 N 欄 `Credit to` 會顯示喺食譜底部。
+
+## 規則說明（只供開發者；網址尾加 `#rules` 先會顯示）
 1. 午餐、晚餐餸數分開揀；主菜數＝餸數÷2（捨去小數），其餘為副菜：3個餸＝1主2副，4個＝2主2副。
 2. 正常飲食：同餐及前後餐主菜嘅主要蛋白質唔重複；蛋奶素／純素唔設限制。
 3. 同一餐內所有菜式菜系一樣（早餐嘅飲品、水果盡量同菜系，冇就用其他菜系）。
@@ -26,7 +33,7 @@
 15. 連續日子避免相似菜式（用菜名最後兩個字判斷，例如炒蛋）。
 16. 「避免蛋／奶」按主要蛋白質同菜名過濾，唔係過敏保證；「多肉」只適用正常飲食。
 17. 網址尾加 #rules：顯示規則，並且有食譜嘅菜名會變紫色底線，可以點入睇食譜（全部食譜完成後可移除）。
-18. 語言：右上角切換中／英／印／菲；菜名翻譯需要 Excel 加 Dish_EN、Dish_ID、Dish_FIL 欄，冇就顯示中文；材料名用材料庫翻譯。
-
-## 更新菜式資料
-菜式資料內嵌喺 `index.html` 入面。Excel 更新後，需要重新由 Excel 生成 `index.html`，再覆蓋上載。
+18. 語言：右上角切換中／英／印／菲；菜名翻譯需要 Excel 加 Dish_EN、Dish_ID、Dish_FIL 欄，冇就顯示中文；材料名用材料庫翻譯；食譜步驟翻譯用「做法」sheet 嘅 Step_EN、Step_ID、Step_FIL 欄。
+19. 買餸日晚餐嘅海鮮主菜，約 85% 機會揀即日（Expire=1）海鮮；烚菜、炒菜免重複扣分，並約一半機會做蔬菜副菜。
+20. 午晚餐每星期至少 70% 為中式（中式選擇唔夠時會放寬）。
+21. 資料：開啟時先讀同一資料夾嘅「食譜.xlsx」（GitHub 上載即更新），讀唔到就用內嵌資料。食譜格式：菜名、食材、調味、做法逐步、Credit（Excel 菜式清單第 N 欄）。
