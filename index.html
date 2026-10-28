@@ -158,8 +158,8 @@ const lab=d=>S.diet==="正常"&&(d.di==="純素"||d.di==="蛋奶素")&&!(d.p==="
 function applyLang(){$("#tt").textContent=tr(U.tt);$("#gs").textContent=tr(U.gs);$("#go").textContent=tr(U.go);$("#lg").value=S.lang;$("#st").style.display=LI()?"none":""}
 const CT={食材:A("食材","Ingredients","Bahan","Sangkap"),調味:A("調味","Seasoning","Bumbu","Pampalasa"),裝飾:A("裝飾","Garnish","Hiasan","Palamuti")};
 function openRec(id){const r=REC[id],d=DATA.find(x=>x.id===id),L=LI();
- const line=k=>{const a=r.i.filter(x=>x[0]===k);return a.length?`<div>${tr(CT[k])}：${a.map(x=>lb(x[1])+(x[2]!==""?" "+x[2]:"")+(x[3]?" "+x[3]:"")).join("、")}</div>`:""};
- $("#rc").innerHTML=`<div class="card"><div class="row"><span></span><button id="rx">✕</button></div><div class="rt">${nm(d)}</div>${line("食材")}${line("調味")}${line("裝飾")}<div style="height:1.5em"></div>`+r.s.map((t,k)=>`<div>${k+1}. ${Array.isArray(t)?(t[L]||t[0]):t}</div>`).join("")+(d.cr?`<div style="height:6em"></div><div class="t">Credit: ${d.cr}</div>`:"")+`</div>`;
+ const line=k=>{const a=r.i.filter(x=>x[0]===k);return a.length?`<div>${tr(CT[k])}：</div><div>${a.map(x=>lb(x[1])+(x[2]!==""?" "+x[2]:"")+(x[3]?" "+x[3]:"")).join("、")}</div>`:""};
+ $("#rc").innerHTML=`<div class="card"><div class="row"><span></span><button id="rx">✕</button></div><div class="rt">${nm(d)}</div><div style="height:1em"></div>${line("食材")}${line("調味")}${line("裝飾")}<div style="height:1.5em"></div>`+r.s.map((t,k)=>`<div>${k+1}. ${Array.isArray(t)?(t[L]||t[0]):t}</div>`).join("")+(d.cr?`<div style="height:6em"></div><div class="t">Credit: ${d.cr}</div>`:"")+`</div>`;
  $("#rc").hidden=false;$("#rx").onclick=()=>$("#rc").hidden=true}
 $("#rc").onclick=e=>{if(e.target.id==="rc")$("#rc").hidden=true};
 $("#out").addEventListener("click",e=>{const a=e.target.closest&&e.target.closest(".lk");if(a)openRec(a.dataset.r)});
