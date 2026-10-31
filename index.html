@@ -59,10 +59,10 @@ const $=s=>document.querySelector(s);
 const DEF={lang:"zh",avoidE:false,avoidM:false,meaty:false,diet:"正常",nl:3,nd:3,meals:["L","D"],soupN:2,oneN:2,shop:[],dessD:[],dessM:"D"};
 let S=null;try{S=JSON.parse(localStorage.getItem("mp6")||"null")}catch(e){}
 const first=!S;S={...DEF,...(S||{})};
-const mo=new Date().getMonth()+1,sum=mo>=4&&mo<=10,win=mo>=10||mo<=4;
+const NOW=(()=>{const q=new URLSearchParams(location.search).get("date");const t=q?new Date(q+"T12:00:00"):null;return t&&!isNaN(t)?t:new Date()})(),SEA=(v=>v>=304&&v<505?"春":v>=505&&v<1007?"夏":v>=1007&&v<1107?"秋":"冬")((NOW.getMonth()+1)*100+NOW.getDate());let SPR={};const rollSeason=()=>{SPR={};DATA.forEach(d=>{if(d.s==="春"||d.s==="秋")SPR[d.id]=Math.random()<(d.s===SEA?0.75:0.15)})};
 const NAME={B:"早餐",L:"午餐",D:"晚餐",T:"茶點"},ORDER=["B","L","D","T"],DAYS=["星期一","星期二","星期三","星期四","星期五","星期六","星期日"];
 const dietOk=d=>S.diet==="正常"||(S.diet==="蛋奶素"?d.di!=="正常":d.di==="純素");
-const seaOk=d=>!d.s||d.s==="全年"||(d.s==="夏"?sum:win);
+const seaOk=d=>!d.s||d.s==="全年"||(d.s==="夏"||d.s==="冬"?d.s===SEA:!!SPR[d.id]);
 const isBF=d=>d.bt&&d.bt!=="不適用";
 const okM=(d,t)=>{const f=t==="L"?d.lu:d.dn;return f==="Yes"||(f!=="No"&&!isBF(d)&&d.lm!=="Yes")};
 let curDay=null;
@@ -140,7 +140,7 @@ function genAuto(i,t,day,fc){
   const r=genMeal(i,t,day,c),s=r.warn.length*10+(sf(t,day)&&!sm(r)?6:0)+plan.filter(m=>m&&m.c===c).length*0.7+Math.random()*2;
   if(s<bs){bs=s;R=r}}
  return R||genMeal(i,t,day,null)}
-function gen(){plan=[];cnt={};const ms=mealsOn(),el=[],ld=[];let i=0;
+function gen(){rollSeason();plan=[];cnt={};const ms=mealsOn(),el=[],ld=[];let i=0;
  for(let d=0;d<7;d++)for(const t of ms){if(hasMain(t)){ld.push(i);if(!(t==="L"&&oneDays().has(d)))el.push(i)}i++}
  const q=Math.min(el.length,Math.ceil(ld.length*.7)),fo=new Set(el.sort(()=>Math.random()-.5).slice(0,q));
  i=0;for(let d=0;d<7;d++)for(const t of ms){plan[i]=genAuto(i,t,d,fo.has(i));tally();i++}render()}
@@ -215,5 +215,5 @@ async function loadXlsx(){try{if(typeof XLSX==="undefined"){XST="XLSX 程式庫�
   for(const a of LB.slice(LK.i+1)){const t=[t0,t1,t2].map(x=>x>=0?ok(a[x]):"");if(s(a[ci])&&t.some(Boolean))nl[s(a[ci])]=t}}
  if(!nd.length){XST="「菜式清單」讀唔到任何菜式";return false}
  DATA=nd;REC=nr;LIB=nl;XST="已讀入 "+nd.length+" 道菜、"+Object.keys(nr).length+" 道有食譜";return true}catch(e){XST="讀取出錯："+e.message;return false}}
-$("#go").onclick=gen;stats();if(first)showSet();gen();loadXlsx().then(ok=>{if(ok){stats();gen()}if(DEV){const e=document.createElement("div");e.className="t";e.textContent="資料來源："+(ok?"食譜.xlsx":"內嵌資料（Excel 冇用到）")+"｜"+XST;$("#rl").appendChild(e)}});
+$("#go").onclick=gen;stats();if(first)showSet();gen();loadXlsx().then(ok=>{if(ok){stats();gen()}if(DEV){const e=document.createElement("div");e.className="t";e.textContent="資料來源："+(ok?"食譜.xlsx":"內嵌資料（Excel 冇用到）")+"｜"+XST+"｜現時季節："+SEA;$("#rl").appendChild(e)}});
 </script></body></html>
