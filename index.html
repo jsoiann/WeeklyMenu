@@ -30,7 +30,8 @@ label{display:block;margin:6px 0}.sp{background:var(--soup);border-radius:6px;pa
 <label><span data-k="t_one">一餐式午餐（意粉等）每星期日數</span> <select id="on"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></label>
 <b data-k="t_shop">買餸日</b><span data-k="t_shopn">（食材新鮮度用，唔揀＝唔限）</span><div id="sd"></div>
 <button class="p" id="sv" data-k="b_save">儲存並生成</button></div>
-<div style="margin:10px 0"><button class="p" id="go">重新生成一週餐單</button></div>
+<div style="margin:10px 0;display:flex;gap:8px;flex-wrap:wrap"><button class="p" id="cf">✅ 確認餐單，儲存成相片</button><button id="go">重新生成一週餐單</button><button id="un" hidden>↶ 還原上一步</button></div>
+<div class="ov" id="ex" hidden><div class="card" id="exc" style="max-width:640px"></div></div>
 <div class="gw"><div id="out"></div></div>
 <details class="card" id="rl" hidden><summary>規則說明（只供開發者：網址尾加 #rules 先顯示）</summary><div class="t">1. 午餐、晚餐餸數分開揀；主菜數＝餸數÷2（捨去小數），其餘為副菜：3個餸＝1主2副，4個＝2主2副。<br>
 2. 正常飲食：同餐及前後餐主菜嘅主要蛋白質唔重複；蛋奶素／純素唔設限制。<br>
@@ -75,13 +76,13 @@ const LEAF='<svg viewBox="0 0 24 24"><path d="M6.05 8.05c-2.73 2.73-2.73 7.15-.0
 const kd=d=>/豆腐/.test(d.n)?"豆腐":(d.p&&d.p!=="蔬菜"?d.p:"");
 const oneDays=()=>{const n=Math.min(S.oneN,7);return new Set(Array.from({length:n},(_,k)=>Math.floor((k+.5)*7/n)))};
 function genOne(t,day){curDay=day;const l=pool(["獨立成餐"]).filter(d=>d.lu==="Yes");if(!l.length)return null;
- const d=[...l].sort((a,b)=>(cnt[a.id]||0)-(cnt[b.id]||0)+Math.random()-.5)[0];return {t,day,ds:[{...d,t:"餐"}],warn:[],c:d.c}}
+ const d=l.map(x=>[x,(cnt[x.id]||0)+(AV.has(x.id)?3:0)+Math.random()]).sort((a,b)=>a[1]-b[1])[0][0];return {t,day,ds:[{...d,t:"餐"}],warn:[],c:d.c}}
 const pool=(roles,t)=>DATA.filter(d=>(!roles||roles.includes(d.r))&&dietOk(d)&&allergyOk(d)&&seaOk(d)&&freshOk(d)&&(!t||okM(d,t)));
 const MAIN=["主菜"],SIDE=["副菜","清菜"],SOUP=["湯水"],DES=["甜品"];
 const mealsOn=()=>ORDER.filter(t=>S.meals.includes(t)),hasMain=t=>t==="L"||t==="D";
 const soupDays=()=>{const n=Math.min(S.soupN,6);return new Set(Array.from({length:n},(_,k)=>Math.floor(k*6/n)))};
 const dessMeal=()=>S.meals.includes(S.dessM)?S.dessM:S.meals.includes("D")?"D":S.meals.includes("L")?"L":null;
-let plan=[],cnt={};
+let plan=[],cnt={},AV=new Set(),AVC=null,SLOT={};
 const tally=()=>{cnt={};plan.forEach(m=>m&&m.ds.forEach(d=>cnt[d.id]=(cnt[d.id]||0)+1))};
 function around(i){let a=null,b=null;
  for(let j=i-1;j>=0;j--)if(plan[j]&&hasMain(plan[j].t)){a=plan[j];break}
@@ -92,7 +93,7 @@ function genMeal(i,t,day,cu){
  const near=plan.slice(Math.max(0,i-8),i+3).filter(Boolean).flatMap(x=>x.ds.map(d=>d.id));
  const recent=new Set(plan.filter(m=>m&&m.day>=day-1&&m.day<=day+1).flatMap(m=>m.ds.map(fam)));
  const nr=l=>{const x=l.filter(d=>!cnt[d.id]||EX.test(d.n));if(x.length||!l.length)return x;warn.push("有菜式要重複");return l};
- const sc=d=>(EX.test(d.n)?0:(cnt[d.id]||0)*3)+(near.includes(d.id)?6:0)+(recent.has(fam(d))&&!EX.test(d.n)?8:0)+Math.random();
+ const sc=d=>(EX.test(d.n)?0:(cnt[d.id]||0)*3)+(near.includes(d.id)?6:0)+(recent.has(fam(d))&&!EX.test(d.n)?8:0)+(AV.has(d.id)&&!EX.test(d.n)?10:0)+Math.random();
  const best=l=>l.reduce((a,b)=>!a||sc(b)<sc(a)?b:a,null);
  const inC=l=>cu?l.filter(d=>d.c===cu):l;
  if(!hasMain(t)){
@@ -131,20 +132,24 @@ const sf=(t,day)=>t==="D"&&S.diet==="正常"&&S.shop.length>0&&S.shop.length<=2&
 function genAuto(i,t,day,fc){
  curDay=day;
  if(t==="T")return genMeal(i,t,day,null);
- if(t==="B"){let R=null,bs=1e9;for(const c of new Set(pool(null).filter(d=>d.bt==="蛋白質"&&BFC.includes(d.c)).map(d=>d.c))){const r=genMeal(i,t,day,c),s=r.warn.length*10+plan.filter(m=>m&&m.t==="B"&&m.c===c).length*.7+Math.random()*2;if(s<bs){bs=s;R=r}}return R||genMeal(i,t,day,null)}
+ if(t==="B"){let R=null,bs=1e9;for(const c of new Set(pool(null).filter(d=>d.bt==="蛋白質"&&BFC.includes(d.c)).map(d=>d.c))){const r=genMeal(i,t,day,c),s=r.warn.length*10+plan.filter(m=>m&&m.t==="B"&&m.c===c).length*.7+Math.random()*2+(c===AVC?3:0);if(s<bs){bs=s;R=r}}return R||genMeal(i,t,day,null)}
  if(t==="L"&&oneDays().has(day)){const r=genOne(t,day);if(r)return r}
  if(fc){const r=genMeal(i,t,day,"中式");if(!r.warn.length&&!(sf(t,day)&&!sm(r)))return r}
  const prev=plan.slice(0,i).reverse().find(m=>m&&hasMain(m.t));
  let R=null,bs=1e9;
  for(const c of new Set(pool(MAIN,t).map(d=>d.c))){
-  const r=genMeal(i,t,day,c),s=r.warn.length*10+(sf(t,day)&&!sm(r)?6:0)+plan.filter(m=>m&&m.c===c).length*0.7+Math.random()*2;
+  const r=genMeal(i,t,day,c),s=r.warn.length*10+(sf(t,day)&&!sm(r)?6:0)+plan.filter(m=>m&&m.c===c).length*0.7+Math.random()*2+(c===AVC?3:0);
   if(s<bs){bs=s;R=r}}
  return R||genMeal(i,t,day,null)}
-function gen(){rollSeason();plan=[];cnt={};const ms=mealsOn(),el=[],ld=[];let i=0;
+function gen(){rollSeason();if(plan.length){try{localStorage.setItem("mp6prev",snap())}catch(e){}}AV=new Set(plan.filter(Boolean).flatMap(m=>m.ds.map(d=>d.id)));AVC=null;SLOT={};plan=[];cnt={};const ms=mealsOn(),el=[],ld=[];let i=0;
  for(let d=0;d<7;d++)for(const t of ms){if(hasMain(t)){ld.push(i);if(!(t==="L"&&oneDays().has(d)))el.push(i)}i++}
  const q=Math.min(el.length,Math.ceil(ld.length*.7)),fo=new Set(el.sort(()=>Math.random()-.5).slice(0,q));
- i=0;for(let d=0;d<7;d++)for(const t of ms){plan[i]=genAuto(i,t,d,fo.has(i));tally();i++}render()}
-function reroll(i){const o=plan[i];plan[i]=null;tally();plan[i]=genAuto(i,o.t,o.day,o.c==="中式"&&hasMain(o.t));tally();render()}
+ i=0;for(let d=0;d<7;d++)for(const t of ms){plan[i]=genAuto(i,t,d,fo.has(i));tally();i++}AV=new Set();render();savePlan();updUn()}
+function reroll(i){const o=plan[i];try{localStorage.setItem("mp6prev",snap())}catch(e){}
+ (SLOT[i]=SLOT[i]||new Set());o.ds.forEach(d=>SLOT[i].add(d.id));AV=new Set(SLOT[i]);AVC=null;plan[i]=null;tally();let fc=false;
+ if(hasMain(o.t)){const tot=plan.filter(m=>m&&hasMain(m.t)).length+1,zh=plan.filter(m=>m&&hasMain(m.t)&&m.c==="中式").length;
+  fc=o.c==="中式"?!(zh/tot>=.7&&Math.random()<.35):(zh/tot<.7||Math.random()<.4);if(!fc)AVC=o.c}else AVC=o.c;
+ plan[i]=genAuto(i,o.t,o.day,fc);AV=new Set();AVC=null;tally();render();savePlan();updUn()}
 const LG=["zh","en","id","fil"],A=(...x)=>x;
 const U={tt:A("🍽️ 一週餐單","🍽️ Weekly Menu","🍽️ Menu Mingguan","🍽️ Lingguhang Menu"),gs:A("設定","Settings","Pengaturan","Setting"),go:A("重新生成一週餐單","Regenerate menu","Buat ulang menu","Gumawa ulit ng menu"),sb:A("湯","Soup","Sup","Sabaw"),veg:A("素","Veg","Veg","Veg"),warn:A("⚠ 選擇有限","⚠ Limited choices","⚠ Pilihan terbatas","⚠ Limitado ang pagpipilian"),ing:A("材料","Ingredients","Bahan","Sangkap"),stp:A("做法","Steps","Cara membuat","Paraan")};
 const MN={B:A("早餐","Breakfast","Sarapan","Almusal"),L:A("午餐","Lunch","Makan siang","Tanghalian"),D:A("晚餐","Dinner","Makan malam","Hapunan"),T:A("茶點","Snack","Camilan","Meryenda")};
@@ -156,7 +161,8 @@ const LI=()=>LG.indexOf(S.lang),tr=a=>a[LI()],tg=t=>LI()?EM[t]||t:t,nm=d=>(d.nt&
 const lb=n=>{const l=LIB[n];if(!l||!LI())return n;return [l[0],l[2],l[1]][LI()-1]||n};
 const lab=d=>S.diet==="正常"&&(d.di==="純素"||d.di==="蛋奶素")&&!(d.p==="蔬菜"&&/烚|炒|灼/.test(d.n))?`<span class="v">${LEAF}${tr(U.veg)}</span>`:"";
 const SK_={"t_diet": ["飲食偏好", "Diet preference", "Preferensi makanan", "Kagustuhan sa pagkain"], "t_once": ["（設定一次就得）", "(set once)", "(cukup diatur sekali)", "(isang beses lang itakda)"], "d_norm": ["正常（無限制）", "Normal (no restriction)", "Normal (tanpa batasan)", "Normal (walang limitasyon)"], "d_ovo": ["蛋奶素", "Ovo-lacto vegetarian", "Vegetarian telur & susu", "Ovo-lacto vegetarian"], "d_vegan": ["純素", "Vegan", "Vegan", "Vegan"], "a_egg": ["避免蛋", "Avoid eggs", "Hindari telur", "Iwasan ang itlog"], "a_milk": ["避免奶（芝士、牛油等）", "Avoid dairy (cheese, butter, etc.)", "Hindari susu (keju, mentega, dll.)", "Iwasan ang gatas (keso, mantikilya, atbp.)"], "a_note": ["只按主要蛋白質同菜名過濾，唔係過敏保證", "Filtered by main protein and dish name only; not an allergy guarantee", "Hanya disaring berdasarkan protein utama dan nama masakan; bukan jaminan alergi", "Sinasala lang ayon sa pangunahing protina at pangalan ng ulam; hindi garantiya laban sa allergy"], "m_meat": ["多肉（正常飲食：盡量編多啲肉類主菜）", "More meat (normal diet: plan more meat mains)", "Lebih banyak daging (diet normal: lebih banyak lauk utama daging)", "Mas maraming karne (normal na diet: mas maraming pangunahing ulam na karne)"], "t_meals": ["每日生成邊幾餐", "Meals to generate each day", "Waktu makan yang dibuat setiap hari", "Mga kainang gagawin bawat araw"], "t_des": ["甜品", "Dessert", "Hidangan penutup", "Panghimagas"], "t_desn": ["（揀日子，唔揀＝唔出）", "(pick days; none = no dessert)", "(pilih hari; kosong = tanpa dessert)", "(pumili ng araw; wala = walang panghimagas)"], "t_desat": ["甜品放喺", "Dessert at", "Dessert pada", "Panghimagas sa"], "o_L": ["午餐", "Lunch", "Makan siang", "Tanghalian"], "o_D": ["晚餐", "Dinner", "Makan malam", "Hapunan"], "t_nl": ["午餐幾多個餸", "Dishes at lunch", "Jumlah lauk makan siang", "Bilang ng ulam sa tanghalian"], "t_nd": ["晚餐幾多個餸", "Dishes at dinner", "Jumlah lauk makan malam", "Bilang ng ulam sa hapunan"], "t_soup": ["每星期煲湯日數（只喺晚餐）", "Soup days per week (dinner only)", "Hari sup per minggu (hanya makan malam)", "Araw ng sabaw bawat linggo (hapunan lang)"], "t_nosun": ["（星期日唔煲）", "(none on Sunday)", "(tidak ada pada hari Minggu)", "(wala tuwing Linggo)"], "t_one": ["一餐式午餐（意粉等）每星期日數", "One-dish lunch days per week (pasta etc.)", "Hari makan siang satu hidangan per minggu (pasta dll.)", "Araw ng isahang ulam na tanghalian bawat linggo (pasta atbp.)"], "t_shop": ["買餸日", "Shopping days", "Hari belanja", "Araw ng pamimili"], "t_shopn": ["（食材新鮮度用，唔揀＝唔限）", "(for ingredient freshness; none = no limit)", "(untuk kesegaran bahan; kosong = tanpa batas)", "(para sa pagiging sariwa ng sangkap; wala = walang limitasyon)"], "b_save": ["儲存並生成", "Save and generate", "Simpan dan buat", "I-save at gumawa"]};
-function applyLang(){$("#tt").textContent=tr(U.tt);$("#gs").textContent=tr(U.gs);$("#go").textContent=tr(U.go);$("#lg").value=S.lang;$("#st").style.display=LI()?"none":"";document.querySelectorAll("[data-k]").forEach(e=>{const a=SK_[e.dataset.k];if(a)e.textContent=a[LI()]});document.querySelectorAll("[data-mk]").forEach(e=>e.textContent=LI()?tr(MN[e.dataset.mk]):NAME[e.dataset.mk]);document.querySelectorAll("[data-dk]").forEach(e=>e.textContent=LI()?tr(DY[+e.dataset.dk]):DAYS[+e.dataset.dk].slice(2))}
+const U2={"cf": ["✅ 確認餐單，儲存成相片", "✅ Confirm menu & save as photos", "✅ Konfirmasi menu & simpan sebagai foto", "✅ Kumpirmahin ang menu at i-save bilang larawan"], "un": ["↶ 還原上一步", "↶ Undo last change", "↶ Urungkan perubahan terakhir", "↶ I-undo ang huling pagbabago"], "sv": ["📱 儲存到相簿", "📱 Save to Photos", "📱 Simpan ke Foto", "📱 I-save sa Photos"], "dl": ["⬇ 下載 JPG", "⬇ Download JPG", "⬇ Unduh JPG", "⬇ I-download ang JPG"], "hint": ["餐單已儲存，下次打開唔會自動重新生成。按「儲存到相簿」，喺分享選單揀「儲存影像」；或者長按圖片儲存。", "Menu saved — it will not regenerate when you reopen the page. Tap “Save to Photos” and choose “Save Image”, or long-press an image.", "Menu tersimpan — tidak dibuat ulang saat halaman dibuka lagi. Ketuk “Simpan ke Foto” lalu pilih “Simpan Gambar”, atau tekan lama gambar.", "Na-save ang menu — hindi ito gagawa ulit kapag binuksan muli. I-tap ang “I-save sa Photos” at piliin ang “Save Image”, o pindutin nang matagal ang larawan."], "rec": ["📖 食譜", "📖 Recipes", "📖 Resep", "📖 Mga Recipe"]};
+function applyLang(){$("#cf").textContent=tr(U2.cf);$("#un").textContent=tr(U2.un);$("#tt").textContent=tr(U.tt);$("#gs").textContent=tr(U.gs);$("#go").textContent=tr(U.go);$("#lg").value=S.lang;$("#st").style.display=LI()?"none":"";document.querySelectorAll("[data-k]").forEach(e=>{const a=SK_[e.dataset.k];if(a)e.textContent=a[LI()]});document.querySelectorAll("[data-mk]").forEach(e=>e.textContent=LI()?tr(MN[e.dataset.mk]):NAME[e.dataset.mk]);document.querySelectorAll("[data-dk]").forEach(e=>e.textContent=LI()?tr(DY[+e.dataset.dk]):DAYS[+e.dataset.dk].slice(2))}
 const AM={"適量": ["to taste", "secukupnya", "ayon sa panlasa"], "少許": ["a little", "sedikit", "kaunti"], "少量": ["a little", "sedikit", "kaunti"], "幾": ["a few", "beberapa", "ilan"], "提香用": ["for aroma", "untuk aroma", "pampabango"]},am=v=>{const a=AM[v];return a&&LI()?a[LI()-1]:v};
 const UN={"隻": ["pcs", "buah", "piraso"], "個": ["pcs", "buah", "piraso"], "顆": ["pcs", "butir", "piraso"], "粒": ["pcs", "butir", "piraso"], "件": ["pcs", "potong", "piraso"], "塊": ["piece", "potong", "piraso"], "片": ["slice", "iris", "hiwa"], "小片": ["small slice", "iris kecil", "maliit na hiwa"], "條": ["strip", "batang", "piraso"], "根": ["stick", "batang", "piraso"], "株": ["stalk", "batang", "piraso"], "罐": ["can", "kaleng", "lata"], "杯": ["cup", "cangkir", "tasa"], "包": ["pack", "bungkus", "pakete"], "盒": ["box", "kotak", "kahon"], "碗": ["bowl", "mangkuk", "mangkok"], "兩": ["tael (≈38 g)", "tael (±38 g)", "tael (≈38 g)"], "斤": ["catty (≈600 g)", "kati (±600 g)", "catty (≈600 g)"], "磅": ["lb", "pon", "libra"], "滴": ["drop", "tetes", "patak"], "大把": ["big handful", "segenggam besar", "isang malaking dakot"], "把": ["handful", "genggam", "dakot"], "小撮": ["pinch", "sejumput", "kurot"], "磚": ["block", "blok", "bloke"], "桶": ["tub", "kemasan", "tub"], "匙": ["spoon", "sendok", "kutsara"], "湯匙": ["tbsp", "sdm", "tbsp"], "茶匙": ["tsp", "sdt", "tsp"], "瓣": ["clove", "siung", "butil"], "顆(切片)": ["pcs (sliced)", "butir (diiris)", "piraso (hiniwa)"], "可省略": ["optional", "opsional", "opsyonal"], "(可省略)": ["(optional)", "(opsional)", "(opsyonal)"]},un=u=>{const a=UN[u];return a&&LI()?a[LI()-1]:u};
 const CT={調味A:A("調味A","Seasoning A","Bumbu A","Pampalasa A"),調味B:A("調味B","Seasoning B","Bumbu B","Pampalasa B"),醃料:A("醃料","Marinade","Bumbu marinasi","Pangmarinada"),芡汁:A("芡汁","Thickening sauce","Saus pengental","Sawsawang pampalapot"),醬料:A("醬料","Sauce","Saus","Sawsawan"),食材:A("食材","Ingredients","Bahan","Sangkap"),調味:A("調味","Seasoning","Bumbu","Pampalasa"),裝飾:A("裝飾","Garnish","Hiasan","Palamuti")};
@@ -215,5 +221,73 @@ async function loadXlsx(){try{if(typeof XLSX==="undefined"){XST="XLSX 程式庫�
   for(const a of LB.slice(LK.i+1)){const t=[t0,t1,t2].map(x=>x>=0?ok(a[x]):"");if(s(a[ci])&&t.some(Boolean))nl[s(a[ci])]=t}}
  if(!nd.length){XST="「菜式清單」讀唔到任何菜式";return false}
  DATA=nd;REC=nr;LIB=nl;XST="已讀入 "+nd.length+" 道菜、"+Object.keys(nr).length+" 道有食譜";return true}catch(e){XST="讀取出錯："+e.message;return false}}
-$("#go").onclick=gen;stats();if(first)showSet();gen();loadXlsx().then(ok=>{if(ok){stats();gen()}if(DEV){const e=document.createElement("div");e.className="t";e.textContent="資料來源："+(ok?"食譜.xlsx":"內嵌資料（Excel 冇用到）")+"｜"+XST+"｜現時季節："+SEA;$("#rl").appendChild(e)}});
+
+const snap=()=>JSON.stringify({ms:mealsOn(),plan:plan.map(m=>({t:m.t,day:m.day,c:m.c,warn:m.warn,ds:m.ds.map(d=>[d.id,d.t])}))});
+function savePlan(){try{localStorage.setItem("mp6plan",snap())}catch(e){}}
+function restorePlan(raw){try{const o=JSON.parse(raw||localStorage.getItem("mp6plan")||"null");if(!o||!Array.isArray(o.plan))return false;
+ if(o.plan.length!==7*mealsOn().length||JSON.stringify(o.ms)!==JSON.stringify(mealsOn()))return false;
+ const P=o.plan.map(m=>{const ds=m.ds.map(([id,t])=>{const d=DATA.find(x=>x.id===id);return d?{...d,t}:null});return ds.includes(null)?null:{t:m.t,day:m.day,c:m.c,warn:m.warn||[],ds}});
+ if(P.includes(null))return false;plan=P;tally();render();return true}catch(e){return false}}
+function updUn(){try{$("#un").hidden=!localStorage.getItem("mp6prev")}catch(e){$("#un").hidden=true}}
+$("#un").onclick=()=>{try{const prev=localStorage.getItem("mp6prev"),cur=snap();if(prev&&restorePlan(prev)){localStorage.setItem("mp6prev",cur);savePlan()}}catch(e){}updUn()};
+const FNT='-apple-system,"PingFang HK","PingFang TC","Noto Sans CJK TC","Noto Sans TC","Microsoft JhengHei",sans-serif',W_=1080,PD=56,MUT="#7a746b",INK="#2b2b2b";
+const mcv=document.createElement("canvas").getContext("2d");
+const tok=t=>String(t).match(/[\u3000-\u9fff\uff00-\uffef]|[^\s\u3000-\u9fff\uff00-\uffef]+\s*|\s+/g)||[];
+function wrapT(text,font,maxW){mcv.font=font;const o=[];let l="";for(const k of tok(text)){const t=l+k;if(l&&mcv.measureText(t.trimEnd()).width>maxW){o.push(l.trimEnd());l=k.trimStart()}else l=t}if(l.trim())o.push(l.trimEnd());return o}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+const txt=(text,font,color,lh,x0=0)=>wrapT(text,font,W_-2*PD-x0).map(s=>({h:lh,draw:(c,y)=>{c.font=font;c.fillStyle=color;c.textBaseline="middle";c.fillText(s,PD+x0,y+lh/2)}}));
+const gap=h=>({h,draw:()=>{}});
+function dateStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function dishRow(d){const zh=LI()===0,nw=W_-2*PD-80-190,F1='600 32px '+FNT,F2='400 26px '+FNT;
+ const L=[...wrapT(nm(d),F1,nw).map(x=>[x,F1,INK,44]),...(zh?[]:wrapT(d.n,F2,nw).map(x=>[x,F2,MUT,36]))],h=L.reduce((a,x)=>a+x[3],0)+16,veg=!!lab(d);
+ return {h,draw:(c,y)=>{if(d.t==="湯"){rr(c,PD,y+2,W_-2*PD,h-4,14);c.fillStyle="#d6e8fa";c.fill()}
+  c.textBaseline="middle";c.font='34px '+FNT;c.fillStyle=INK;c.fillText(EM[d.t]||"",PD+14,y+8+22);
+  let yy=y+8;for(const [s,f,col,lh] of L){c.font=f;c.fillStyle=col;c.fillText(s,PD+80,yy+lh/2);yy+=lh}
+  c.font='24px '+FNT;c.fillStyle=MUT;c.textAlign="right";const tt=tr(TS[d.f]||TS.中);c.fillText(tt,W_-PD-14,y+8+22);
+  if(veg){const vt=tr(U.veg),tw=c.measureText(tt).width+14+(mcv.font='22px '+FNT,mcv.measureText(vt).width)+22;c.textAlign="left";rr(c,W_-PD-14-tw,y+8+8,mcv.measureText(vt).width+22,28,14);c.fillStyle="#dff3e0";c.fill();c.fillStyle="#2f7d3a";c.font='22px '+FNT;c.fillText(vt,W_-PD-14-tw+11,y+8+22)}
+  c.textAlign="left"}}}
+function menuBlocks(){const zh=LI()===0,ms=mealsOn(),B=[];
+ B.push([{h:84,draw:(c,y)=>{c.font='700 50px '+FNT;c.fillStyle=INK;c.textBaseline="middle";c.fillText(zh?"🍽️ 一週餐單":tr(U.tt),PD,y+42)}},
+  {h:56,draw:(c,y)=>{c.font='28px '+FNT;c.fillStyle=MUT;c.textBaseline="middle";c.fillText((zh?"":"一週餐單 · ")+dateStr(),PD,y+28)}},gap(16)]);
+ for(let k=0;k<7;k++){const it=[],soup=plan.some(m=>m.day===k&&m.ds.some(d=>d.t==="湯"));
+  it.push({h:76,draw:(c,y)=>{rr(c,PD,y,W_-2*PD,68,16);c.fillStyle="#c8553d";c.fill();c.font='700 36px '+FNT;c.fillStyle="#fff";c.textBaseline="middle";c.textAlign="left";c.fillText(zh?DAYS[k]:tr(DY[k])+"  "+DAYS[k],PD+24,y+35);
+   if(soup){const t="🍲 "+(zh?"湯":tr(U.sb)+" 湯");c.font='26px '+FNT;const w=c.measureText(t).width+28;rr(c,W_-PD-24-w,y+17,w,36,18);c.fillStyle="#d6e8fa";c.fill();c.fillStyle=INK;c.fillText(t,W_-PD-24-w+14,y+36)}}});
+  for(const t of ms){const m=plan.find(x=>x.day===k&&x.t===t);if(!m)continue;
+   const cu=m.c?tr(CU[m.c]||[m.c,m.c,m.c,m.c])+(zh?"":" "+m.c):"",hd=(zh?NAME[t]:tr(MN[t])+" "+NAME[t])+(cu?" · "+cu:"");
+   it.push(...txt(hd,'600 30px '+FNT,MUT,56));m.ds.forEach(d=>it.push(dishRow(d)))}
+  it.push(gap(30));B.push(it)}
+ return B}
+function recipeBlocks(){const zh=LI()===0,L=LI(),seen=new Set(),list=[],B=[];
+ plan.forEach(m=>m.ds.forEach(d=>{if(REC[d.id]&&!seen.has(d.id)){seen.add(d.id);list.push(d)}}));
+ list.forEach((d,n)=>{const r=REC[d.id],ks=[...new Set(r.i.map(x=>x[0]))].sort((a,b)=>(b==="食材")-(a==="食材")),it=[];
+  if(n===0)it.push({h:80,draw:(c,y)=>{c.font='700 46px '+FNT;c.fillStyle=INK;c.textBaseline="middle";c.fillText(zh?"📖 食譜":tr(U2.rec)+" 食譜",PD,y+40)}});
+  it.push(...txt(nm(d),'700 40px '+FNT,INK,54));if(!zh)it.push(...txt(d.n,'400 28px '+FNT,MUT,40));it.push(gap(10));
+  for(const k of ks){const a=r.i.filter(x=>x[0]===k);
+   it.push(...txt(tr(CT[k]||[k,k,k,k])+"："+a.map(x=>lb(x[1])+(x[2]!==""?" "+am(x[2]):"")+(x[3]&&x[3]!=="-"?" "+un(x[3]):"")).join("、"),'400 28px '+FNT,INK,40));
+   if(!zh)it.push(...txt((CT[k]||[k])[0]+"："+a.map(x=>x[1]+(x[2]!==""?" "+x[2]:"")+(x[3]&&x[3]!=="-"?x[3]:"")).join("、"),'400 24px '+FNT,MUT,34,36))}
+  it.push(gap(14));
+  r.s.forEach((t,j)=>{const main=Array.isArray(t)?(t[L]||t[0]):t;it.push(...txt((j+1)+". "+main,'400 28px '+FNT,INK,40));
+   if(!zh&&Array.isArray(t)&&t[0]&&main!==t[0])it.push(...txt(t[0],'400 24px '+FNT,MUT,34,36))});
+  if(d.cr)it.push(...txt("Credit: "+d.cr,'22px '+FNT,MUT,32));
+  it.push(gap(44));B.push(it)});
+ return B}
+function paginate(blocks,maxH){const pages=[];let cur=[],h=0;for(const b of blocks){const bh=b.reduce((s,x)=>s+x.h,0);
+ if(cur.length&&h+bh>maxH){pages.push(cur);cur=[];h=0}
+ if(bh>maxH){for(const x of b){if(h+x.h>maxH&&cur.length){pages.push(cur);cur=[];h=0}cur.push(x);h+=x.h}}else{cur.push(...b);h+=bh}}
+ if(cur.length)pages.push(cur);return pages}
+function drawPages(blocks,label){const pages=paginate(blocks,3300);return pages.map((it,i)=>{const H=PD+it.reduce((s,x)=>s+x.h,0)+90,cv=document.createElement("canvas");cv.width=W_;cv.height=H;
+ const c=cv.getContext("2d");c.fillStyle="#faf7f2";c.fillRect(0,0,W_,H);let y=PD;for(const x of it){x.draw(c,y);y+=x.h}
+ c.font='22px '+FNT;c.fillStyle=MUT;c.textBaseline="middle";c.textAlign="center";c.fillText("一週餐單AI · "+label+" "+(i+1)+"/"+pages.length,W_/2,H-40);return cv})}
+async function exportJPG(){const date=dateStr(),menu=drawPages(menuBlocks(),"Menu"),rec=DEV?drawPages(recipeBlocks(),"Recipes"):[],
+ cvs=[...menu.map((c,i)=>["weekly-menu-"+date+"-"+(i+1)+".jpg",c]),...rec.map((c,i)=>["weekly-recipes-"+date+"-"+(i+1)+".jpg",c])],files=[];
+ for(const [n,c] of cvs){const b=await new Promise(r=>c.toBlob(r,"image/jpeg",.92));files.push(new File([b],n,{type:"image/jpeg"}))}
+ showEx(files)}
+function showEx(files){const urls=files.map(f=>URL.createObjectURL(f));let can=false;try{can=!!(navigator.canShare&&navigator.canShare({files}))}catch(e){}
+ $("#exc").innerHTML=`<div class="row"><b>${tr(U.tt)}</b><button id="exx">✕</button></div><div class="t" style="margin:6px 0">${tr(U2.hint)}</div><div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-bottom:8px">${can?`<button class="p" id="exs">${tr(U2.sv)}</button>`:""}<button id="exd">${tr(U2.dl)}</button></div>`+urls.map(u=>`<img src="${u}" style="width:100%;border:1px solid var(--bd);border-radius:8px;margin:6px 0">`).join("");
+ $("#ex").hidden=false;$("#exx").onclick=()=>$("#ex").hidden=true;
+ if(can)$("#exs").onclick=async()=>{try{await navigator.share({files,title:"Weekly Menu"})}catch(e){}};
+ $("#exd").onclick=()=>files.forEach((f,i)=>setTimeout(()=>{const a=document.createElement("a");a.href=urls[i];a.download=f.name;document.body.appendChild(a);a.click();a.remove()},i*400))}
+$("#ex").onclick=e=>{if(e.target.id==="ex")$("#ex").hidden=true};
+$("#cf").onclick=async()=>{const b=$("#cf");b.disabled=true;try{savePlan();await exportJPG()}catch(e){$("#exc").innerHTML="<div class=\"t\">"+e.message+"</div>";$("#ex").hidden=false}b.disabled=false};
+$("#go").onclick=gen;stats();if(first)showSet();if(!restorePlan())gen();updUn();loadXlsx().then(ok=>{if(ok){stats();if(!restorePlan())gen()}if(DEV){const e=document.createElement("div");e.className="t";e.textContent="資料來源："+(ok?"食譜.xlsx":"內嵌資料（Excel 冇用到）")+"｜"+XST+"｜現時季節："+SEA;$("#rl").appendChild(e)}});
 </script></body></html>
