@@ -75,8 +75,10 @@ const FL={濃:"濃味",中:"一般",淡:"淡味"},BFC=["中式","西式","日式
 const LEAF='<svg viewBox="0 0 24 24"><path d="M6.05 8.05c-2.73 2.73-2.73 7.15-.02 9.88 1.47-3.4 4.09-6.24 7.36-7.93-2.77 2.34-4.71 5.61-5.39 9.32 2.6 1.23 5.8.78 7.95-1.37C19.43 14.47 20 4 20 4S9.53 4.57 6.05 8.05z"/></svg>';
 const kd=d=>/豆腐/.test(d.n)?"豆腐":(d.p&&d.p!=="蔬菜"?d.p:"");
 const oneDays=()=>{const n=Math.min(S.oneN,7);return new Set(Array.from({length:n},(_,k)=>Math.floor((k+.5)*7/n)))};
-function genOne(t,day){curDay=day;const l=pool(["獨立成餐"]).filter(d=>d.lu==="Yes");if(!l.length)return null;
- const d=l.map(x=>[x,(cnt[x.id]||0)+(AV.has(x.id)?3:0)+Math.random()]).sort((a,b)=>a[1]-b[1])[0][0];return {t,day,ds:[{...d,t:"餐"}],warn:[],c:d.c}}
+const HP=/打邊爐|火鍋/,pk=l=>l.map(x=>[x,(cnt[x.id]||0)+(AV.has(x.id)?3:0)+Math.random()]).sort((a,b)=>a[1]-b[1])[0][0];
+function addDrink(m){if(Math.random()<.4){const l=pool(["飲品"]);if(l.length)m.ds.push({...pk(l),t:"飲"})}return m}
+function genOne(t,day){curDay=day;const l=pool(["獨立成餐"]).filter(d=>d.lu==="Yes"&&!HP.test(d.n));if(!l.length)return null;const d=pk(l);return addDrink({t,day,ds:[{...d,t:"餐"}],warn:[],c:d.c})}
+function genHot(t,day){curDay=day;const l=pool(["獨立成餐"]).filter(d=>HP.test(d.n)&&d.dn==="Yes");if(!l.length)return null;const d=pk(l);return addDrink({t,day,ds:[{...d,t:"餐"}],warn:[],c:d.c})}
 const pool=(roles,t)=>DATA.filter(d=>(!roles||roles.includes(d.r))&&dietOk(d)&&allergyOk(d)&&seaOk(d)&&freshOk(d)&&(!t||okM(d,t)));
 const MAIN=["主菜"],SIDE=["副菜","清菜"],SOUP=["湯水"],DES=["甜品"];
 const mealsOn=()=>ORDER.filter(t=>S.meals.includes(t)),hasMain=t=>t==="L"||t==="D";
@@ -133,7 +135,8 @@ function genAuto(i,t,day,fc){
  curDay=day;
  if(t==="T")return genMeal(i,t,day,null);
  if(t==="B"){let R=null,bs=1e9;for(const c of new Set(pool(null).filter(d=>d.bt==="蛋白質"&&BFC.includes(d.c)).map(d=>d.c))){const r=genMeal(i,t,day,c),s=r.warn.length*10+plan.filter(m=>m&&m.t==="B"&&m.c===c).length*.7+Math.random()*2+(c===AVC?3:0);if(s<bs){bs=s;R=r}}return R||genMeal(i,t,day,null)}
- if(t==="L"&&oneDays().has(day)){const r=genOne(t,day);if(r)return r}
+ if(t==="D"&&!sf(t,day)&&!plan.some(m=>m&&m.t==="D"&&m.ds[0]&&HP.test(m.ds[0].n))&&(soupDays().size===0||soupDays().has(day))&&Math.random()<.2){const r=genHot(t,day);if(r)return r}
+  if(t==="L"&&oneDays().has(day)){const r=genOne(t,day);if(r)return r}
  if(fc){const r=genMeal(i,t,day,"中式");if(!r.warn.length&&!(sf(t,day)&&!sm(r)))return r}
  const prev=plan.slice(0,i).reverse().find(m=>m&&hasMain(m.t));
  let R=null,bs=1e9;
