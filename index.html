@@ -172,7 +172,7 @@ const UN={"隻": ["pcs", "buah", "piraso"], "個": ["pcs", "buah", "piraso"], "�
 const CT={調味A:A("調味A","Seasoning A","Bumbu A","Pampalasa A"),調味B:A("調味B","Seasoning B","Bumbu B","Pampalasa B"),醃料:A("醃料","Marinade","Bumbu marinasi","Pangmarinada"),芡汁:A("芡汁","Thickening sauce","Saus pengental","Sawsawang pampalapot"),醬料:A("醬料","Sauce","Saus","Sawsawan"),食材:A("食材","Ingredients","Bahan","Sangkap"),調味:A("調味","Seasoning","Bumbu","Pampalasa"),裝飾:A("裝飾","Garnish","Hiasan","Palamuti")};
 function openRec(id){const r=REC[id],d=DATA.find(x=>x.id===id),L=LI(),ks=[...new Set(r.i.map(x=>x[0]))].sort((a,b)=>(b==="食材")-(a==="食材"));
  const line=k=>{const a=r.i.filter(x=>x[0]===k);return a.length?`<div>${tr(CT[k]||[k,k,k,k])}：</div><div>${a.map(x=>lb(x[1])+(x[2]!==""?" "+am(x[2]):"")+(x[3]&&x[3]!=="-"?" "+un(x[3]):"")).join("、")}</div>`:""};
- $("#rc").innerHTML=`<div class="card"><div class="row"><span></span><button id="rx">✕</button></div><div class="rt">${nm(d)}</div><div style="height:1em"></div>${ks.map(line).join("")}<div style="height:1.5em"></div>`+r.s.map((t,k)=>`<div>${k+1}. ${Array.isArray(t)?(t[L]||t[0]):t}</div>`).join("")+(d.cr?`<div style="height:6em"></div><div class="t">Credit: ${d.cr}</div>`:"")+`</div>`;
+ $("#rc").innerHTML=`<div class="card"><div class="row"><span></span><button id="rx">✕</button></div><div class="rt">${nm(d)}</div><div style="height:1em"></div>${ks.map(line).join("")}<div style="height:1.5em"></div>`+r.s.map((t,k)=>`<div>${k+1}. ${Array.isArray(t)?(t[L]||t[0]):t}</div>`).join("")+((d.cr||d.rm)?`<div style="height:6em"></div>`:"")+(d.cr?`<div class="t">Credit: ${esc(d.cr)}</div>`:"")+(d.rm?`<div style="height:1.2em"></div><div class="t" style="white-space:pre-wrap">${esc(d.rm)}</div>`:"")+`</div>`;
  $("#rc").hidden=false;$("#rx").onclick=()=>$("#rc").hidden=true}
 $("#rc").onclick=e=>{if(e.target.id==="rc")$("#rc").hidden=true};
 $("#out").addEventListener("click",e=>{const a=e.target.closest&&e.target.closest(".lk");if(a)openRec(a.dataset.r)});
@@ -208,10 +208,10 @@ async function loadXlsx(){try{if(typeof XLSX==="undefined"){XST="XLSX 程式庫�
  hd=(rows,keys)=>{const i=rows.findIndex(r=>keys.every(k=>r.some(c=>s(c).toLowerCase()===k)));if(i<0)return null;const h={};rows[i].forEach((c,j)=>{const k=s(c).toLowerCase();if(k&&!(k in h))h[k]=j});return{i,h}},
  col=(H,...a)=>{for(const k of a)if(k in H.h)return H.h[k];return -1};
  const m=g("菜式清單"),M=hd(m,["id","dish"]);if(!M){XST="「菜式清單」搵唔到標題列（要有 ID 同 Dish）";return false}
- const X={id:col(M,"id"),c:col(M,"cuisine"),di:col(M,"diet"),n:col(M,"dish"),bt:col(M,"breakfast"),lu:col(M,"lunch"),dn:col(M,"dinner"),lm:col(M,"light meal"),p:col(M,"main protein"),r:col(M,"dish role"),f:col(M,"taste"),e:col(M,"expire(day)","expire"),s:col(M,"season"),cr:col(M,"credit to","credit")},
+ const X={id:col(M,"id"),c:col(M,"cuisine"),di:col(M,"diet"),n:col(M,"dish"),bt:col(M,"breakfast"),lu:col(M,"lunch"),dn:col(M,"dinner"),lm:col(M,"light meal"),p:col(M,"main protein"),r:col(M,"dish role"),f:col(M,"taste"),e:col(M,"expire(day)","expire"),s:col(M,"season"),cr:col(M,"credit to","credit"),rm:col(M,"remarks","remark","備註","備注","notes","note")},
  tx=[col(M,"dish_en"),col(M,"dish_id"),col(M,"dish_fil")],V=(v,k)=>X[k]>=0?s(v[X[k]]):"",nd=[];
  for(const v of m.slice(M.i+1)){const id=V(v,"id"),n=V(v,"n");if(!id||!n)continue;
-  const d={id,n,c:V(v,"c"),di:V(v,"di"),bt:V(v,"bt"),lu:V(v,"lu"),dn:V(v,"dn"),lm:V(v,"lm"),p:V(v,"p"),r:V(v,"r"),f:TM[V(v,"f")]||flav(n,V(v,"r")),e:parseInt(V(v,"e"))||0,s:V(v,"s"),cr:V(v,"cr")};
+  const d={id,n,c:V(v,"c"),di:V(v,"di"),bt:V(v,"bt"),lu:V(v,"lu"),dn:V(v,"dn"),lm:V(v,"lm"),p:V(v,"p"),r:V(v,"r"),f:TM[V(v,"f")]||flav(n,V(v,"r")),e:parseInt(V(v,"e"))||0,s:V(v,"s"),cr:V(v,"cr"),rm:V(v,"rm")};
   if(tx.some(x=>x>=0))d.nt=tx.map(x=>x>=0?ok(v[x]):"");nd.push(d)}
  const A=g("材料"),AH=hd(A,["菜id","材料"]),I={},St={};
  if(AH){const ci=col(AH,"菜id"),cc=col(AH,"類別"),cn=col(AH,"材料"),ca=col(AH,"份量"),cu=col(AH,"單位");
@@ -272,7 +272,7 @@ function recipeBlocks(){const zh=LI()===0,L=LI(),seen=new Set(),list=[],B=[];
   it.push(gap(14));
   r.s.forEach((t,j)=>{const main=Array.isArray(t)?(t[L]||t[0]):t;it.push(...txt((j+1)+". "+main,'400 28px '+FNT,INK,40));
    if(!zh&&Array.isArray(t)&&t[0]&&main!==t[0])it.push(...txt(t[0],'400 24px '+FNT,MUT,34,36))});
-  if(d.cr)it.push(...txt("Credit: "+d.cr,'22px '+FNT,MUT,32));
+  if(d.cr)it.push(...txt("Credit: "+d.cr,'22px '+FNT,MUT,32));if(d.rm){it.push(gap(32));String(d.rm).split("\n").forEach(ln=>it.push(...txt(ln||" ",'22px '+FNT,MUT,32)))}
   it.push(gap(44));B.push(it)});
  return B}
 function paginate(blocks,maxH){const pages=[];let cur=[],h=0;for(const b of blocks){const bh=b.reduce((s,x)=>s+x.h,0);
